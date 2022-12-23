@@ -1,7 +1,16 @@
-import pandas as pd
 import requests
 import time
-from sqlalchemy import Integer, String, DateTime, Float, inspect
+import pandas as pd
+import sqlalchemy as sa
+
+engine = sa.create_engine("postgresql+psycopg2://admin:admin@localhost/final_project")
+ticker = "TSLA"
+
+
+apikey = open("api")#В файле "api" должен лежать ваш ключ от API
+
+interval = "5min" #Интервал между точками данных во временном ряду. 
+#Поддерживаются следующие значения : 1min, 5min, 15min, 30min,60min
 
 def collect_data(ticker):
     apikey = open("api")#В файле "api" должен лежать ваш ключ от API
@@ -69,36 +78,57 @@ def collect_data(ticker):
     df = df.T
     df = df.sort_index()
     return df
+print(collect_data(ticker))
 
-def load_to_sql(df, engine):
+"""  
+#Разделяем словарь на метаданные и сделки
+try:
+    meta = full_data["Meta Data"]
+except KeyError:
+    print("Достигнуто ограничение по количеству запросов. Ждём 1мин, а затем продолжим.")
+    time.sleep(60)
+    meta = full_data["Meta Data"]
+
+deals = full_data["Time Series (5min)"]
     
-    #В этом блоке мы проверяем наличие таблицы, считаем количество строк,
-    #Генерируем список последоовательных чисел начиная с последней строки +1
-    #Всё это для добавления index в таблицу
-    index = []
-    insp = inspect(engine)
-    if (insp.has_table('stocks')):
-        last_id = pd.read_sql(''' SELECT COUNT(*) FROM stocks ''', engine)
-        last_id = last_id.values[0][0]
-    else:
-        last_id = 0
-    for i in range(last_id+1, last_id+len(df)+1):
-        index.append(i)
-    df = df.set_index([pd.Index(index)])
+#Поиск по тикеру, 
+#позже понадобится для выведения названия акции 
+search = requests.get(f"https://www.alphavantage.co/query?"+
+    f"function=SYMBOL_SEARCH&"+
+    f"keywords={meta['2. Symbol']}&"+
+    f"apikey={apikey}")
+search_json = search.json()
+
+index = 0
+final_data = {}
+print(meta["2. Symbol"])
     
-    df.to_sql("stocks", 
-    engine, 
-    index=True, 
-    if_exists="append", 
-    dtype={
-        "index": Integer,
-        "datetime": DateTime,
-        "ticker": String,
-        "name": String,
-        "open": Float,
-        "high": Float,
-        "low": Float,
-        "close": Float,
-        "volume": Integer
-        })
-    print("База загружена успешно")
+for i in deals.items():
+    final_data[index] = {
+    "datetime":i[0], 
+    "ticker":meta["2. Symbol"], 
+    "name":search_json["bestMatches"][0]["2. name"],
+    "open":i[1]["1. open"], 
+    "high":i[1]["2. high"], 
+    "low":i[1]["3. low"], 
+    "close":i[1]["4. close"], 
+    "volume":i[1]["5. volume"],
+    }
+    index+=1
+df = pd.DataFrame(final_data)
+df = df.T
+df = df.sort_index()
+df = df.set_index(("datetime"))
+print(df)
+
+index = []
+insp = sa.inspect(engine)
+if (insp.has_table('stocks')):
+    last_id = pd.read_sql(''' SELECT COUNT(*) FROM stocks ''', engine)
+    print(last_id.values[0][0])
+else:
+    last_id = 1
+for i in range(last_id.values[0][0]+1, last_id.values[0][0]+len(df)+1):
+    index.append(i)
+df = df.set_index([pd.Index(index)])
+print(df)"""
