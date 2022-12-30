@@ -3,14 +3,17 @@
 Анализ рынка валют
 
 Общая задача: создать ETL-процесс формирования витрин данных для анализа изменений курса валют.
+
 ___
+
 ## Стек
   - Загрузка данных - **Python 3.7.15**
   - Хранение слепка данных **Postgres 15**
   - Оркестрация - **Airflow v2.5**
   - Выгрузка данных - **Pandas 1.3.5**
 
-  ___
+___
+
 ## Инструкция
 
 1. Зарегистрируйте api на https://www.alphavantage.co/support/#api-key
@@ -29,14 +32,18 @@ tickers = ["TSLA", "IBM", "NVDA", "AMD", "INTC"]
 4. Во вкладке DAGs находим load_stocks. После его запуска если задания отработали успешно, полученные данные запишутся в файл output.csv, он находится по пути `airflow/dags/output/output.csv` .
 Проверить наличие даных в этом файле можно запуском скрипта  ` python3 check.py` . Должно получиться что-то вроде этого:
 
-```  ticker                                  name  sum_volume    open   close Diff_price  max_volume time_max_volume  max_price time_max_price  low_price       time_low_price
+```  
+ticker                                  name  sum_volume    open   close Diff_price  max_volume time_max_volume  max_price time_max_price  low_price       time_low_price
 0    AMD            Advanced Micro Devices Inc    38250565   63.00   62.79     -0.33%      490223        09:31:00      63.54       09:36:00      61.96  2022-12-28 12:07:00
 1    IBM  International Business Machines Corp     2141273  141.87  140.30     -1.11%       80000        16:05:00     142.81       09:38:00     139.49  2022-12-28 16:20:00
 2   INTC                            Intel Corp    23263453   26.51   25.65     -3.24%      717043        16:01:00      26.51       04:01:00      25.49  2022-12-28 17:02:00
 3   NVDA                           NVIDIA Corp    33823624  141.21  140.55     -0.47%      732252        09:31:00     142.62       09:36:00     138.47  2022-12-28 05:18:00
-4   TSLA                             Tesla Inc   218866213  107.84  114.00      5.71%     3440599        09:31:00     116.27       09:43:00     104.22  2022-12-28 04:52:00```
+4   TSLA                             Tesla Inc   218866213  107.84  114.00      5.71%     3440599        09:31:00     116.27       09:43:00     104.22  2022-12-28 04:52:00 
+```
+
 
 ___
+
 
 ### Описание полей таблицы:
 
