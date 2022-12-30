@@ -1,46 +1,47 @@
 import pandas as pd
 import requests
 import time
-from sqlalchemy import Integer, String, DateTime, Float, inspect
+from sqlalchemy import Integer, String, DateTime, Float, inspect, create_engine
 
-def collect_data(ticker):
-    apikey = open("api")#В файле "api" должен лежать ваш ключ от API
+def collect_data(ticker, apikey):
 
-    interval = "5min" #Интервал между точками данных во временном ряду. 
+    interval = "1min" #Интервал между точками данных во временном ряду. 
     #Поддерживаются следующие значения : 1min, 5min, 15min, 30min,60min
     
     #Тут мы достаём по тикеру из API данные по сделкам
-    req = requests.get(f"https://www.alphavantage.co/query?"+
-        f"function=TIME_SERIES_INTRADAY&"+
-        f"outputsize=compact&"+
-        f"symbol={ticker}&"+
-        f"interval={interval}&"+
-        f"apikey={apikey}")
-    full_data = req.json()
     
-    #Разделяем словарь на метаданные и сделки
-    try:
-        meta = full_data["Meta Data"]
-    except KeyError:
-        print("Достигнуто ограничение по количеству запросов. Ждём 1мин, а затем продолжим.")
-        time.sleep(60)
-        req = requests.get(f"https://www.alphavantage.co/query?"+
-        f"function=TIME_SERIES_INTRADAY&"+
-        f"outputsize=compact&"+
-        f"symbol={ticker}&"+
-        f"interval={interval}&"+
-        f"apikey={apikey}")
-        full_data = req.json()
-        meta = full_data["Meta Data"]
+    counter = 0
+    while (counter < 7):
+        if (counter > 0):
+            print("Достигнуто ограничение по количеству запросов. Ждём 10секунд, а затем продолжим.(максимум 1мин)")
+            time.sleep(10)
+        elif (counter > 7):
+            print("Не удалось подключится к API")
+            return 1
+        try:
+            req = requests.get(f"https://www.alphavantage.co/query?"+
+                f"function=TIME_SERIES_INTRADAY&"+
+                f"outputsize=full&"+
+                f"symbol={ticker}&"+
+                f"interval={interval}&"+
+                f"apikey={apikey}")
+            full_data = req.json()
+            #Разделяем словарь на метаданные (meta) и сделки (deals)
+            meta = full_data["Meta Data"]
+            deals = full_data["Time Series (1min)"]
+            break
+        except KeyError: 
+            counter += 1
+    
 
-    deals = full_data["Time Series (5min)"]
+    
     
     #Поиск по тикеру, 
     #позже понадобится для выведения названия акции 
     search = requests.get(f"https://www.alphavantage.co/query?"+
         f"function=SYMBOL_SEARCH&"+
         f"keywords={meta['2. Symbol']}&"+
-        f"apikey={apikey}")
+        f"apikey={apikey[0]}")
     search_json = search.json()
 
     
@@ -49,7 +50,7 @@ def collect_data(ticker):
     #добавляем тикер из метаданных взятых из API;
     #и название взятое из поиска по тикеру;
     
-    index = 0
+    index = len(deals)
     final_data = {}
     print(meta["2. Symbol"])
     
@@ -64,14 +65,14 @@ def collect_data(ticker):
         "close":i[1]["4. close"], 
         "volume":i[1]["5. volume"],
         }
-        index+=1
+        index-=1
     df = pd.DataFrame(final_data)
     df = df.T
-    df = df.sort_index()
+    df = df.sort_index(ascending=False)
     return df
 
 def load_to_sql(df, engine):
-    
+    df = df.sort_index()
     #В этом блоке мы проверяем наличие таблицы, считаем количество строк,
     #Генерируем список последоовательных чисел начиная с последней строки +1
     #Всё это для добавления index в таблицу
@@ -101,4 +102,9 @@ def load_to_sql(df, engine):
         "close": Float,
         "volume": Integer
         })
-    print("База загружена успешно")
+    check_last_id = pd.read_sql(''' SELECT COUNT(*) FROM stocks ''', engine)
+    check_last_id = check_last_id.values[0][0]
+    if (check_last_id == last_id):
+        print("Новых записей не добавлено")
+    else:
+        print("База загружена успешно")

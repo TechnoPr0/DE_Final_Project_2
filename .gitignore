@@ -1,1 +1,7 @@
 api
+logs
+__pycache__
+tests_func.py
+db*/
+plugins/
+.env

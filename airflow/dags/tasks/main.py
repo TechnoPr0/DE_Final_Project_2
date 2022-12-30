@@ -1,11 +1,11 @@
 import sqlalchemy as sa
 from functions import *
 import pandas as pd
+from variables import *
+start_time = time.time()
 
-
-tickers = ["TSLA","IBM","NVDA"] #Тикер акции
-apikey = open("api")#В файле "api" должен лежать ваш ключ от API
-engine = sa.create_engine("postgresql+psycopg2://admin:admin@localhost/final_project")
+#Тикер акции
+engine = sa.create_engine("postgresql+psycopg2://admin:admin@host.docker.internal:5430/final_project")
 
 for ticker in tickers:
     #Проверяем существование таблицы
@@ -19,19 +19,19 @@ for ticker in tickers:
         #и загружаем все данные начиная со следующей строки в базу данных
         if (len(ticker_search.index)>0):
             last_line = ticker_search["datetime"].iloc[-1]
-            data = collect_data(ticker)
-            entry_point = data[data["datetime"]==str(last_line)].index[0]
+            data = collect_data(ticker, apikey)
+            entry_point = int(data[data["datetime"]==str(last_line)].index[0])
             slicer = data.iloc[entry_point:-1]
             load_to_sql(slicer, engine)
             
         else:
         #Если строк по этому тикеру нет - загружаем все данные. 
-            load_to_sql(collect_data(ticker), engine)
+            load_to_sql(collect_data(ticker, apikey), engine)
         
         
             
     else:
         print("Таблицы не существует")
-        load_to_sql(collect_data(ticker), engine)
+        load_to_sql(collect_data(ticker, apikey), engine)
  
-
+print(f"--- Скрипт выполнился за {(time.time() - start_time)} секунд ---" )
